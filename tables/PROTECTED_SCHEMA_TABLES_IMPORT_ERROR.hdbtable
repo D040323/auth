@@ -1,0 +1,9 @@
+table.schemaName = "ROLE_MAINTENANCE";	
+table.tableType = COLUMNSTORE;	
+table.columns = 	
+[	
+{name = "TABLE_NAME";      sqlType = VARCHAR; 		length = 128;} ,	
+{name = "CONTENT_PACKAGE"; sqlType = VARCHAR; 		length = 64;} ,
+{name = "SCHEMA_NAME";     sqlType = VARCHAR; 		length = 128;},	
+{name = "INSERT_DATE";     sqlType = TIMESTAMP; 	nullable = true; } 
+]; 				

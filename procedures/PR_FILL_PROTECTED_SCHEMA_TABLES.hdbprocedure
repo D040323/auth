@@ -1,0 +1,65 @@
+PROCEDURE "ROLE_MAINTENANCE"."auth.auth.procedures::PR_FILL_PROTECTED_SCHEMA_TABLES" ( ) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY DEFINER 
+	DEFAULT SCHEMA ROLE_MAINTENANCE
+	--READS SQL DATA 
+	AS
+BEGIN
+-- >>>>>> ATTENTION!!!
+-- >>>>>> Before running this procedure, the following is necessary:
+-- >>>>>> please fill table "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_IMPORT_LIST" via flatfile upload!                              
+-- to run this procedure, use the following:
+-- CALL "ROLE_MAINTENANCE"."auth.auth.procedures::PR_FILL_PROTECTED_SCHEMA_TABLES";
+
+
+/* ***************************************************************************************/
+/* procedure "ROLE_MAINTENANCE"."auth.auth.procedures::PR_FILL_PROTECTED_SCHEMA_TABLES"  */
+/* ***************************************************************************************/
+/* description */
+-- This is a procedure to check a list of [schema_name, table_name].
+-- Only those table_names, which do exist in public synonyms
+-- and where the correct schema_name is listed,
+-- will be inserted into a table.
+-- Then this table can be used to grant SELECT privilege on each schema_name.table_name
+-- via procedure "ROLE_MAINTENANCE"."auth.auth.procedures::PROC_GRANT_SELECT_ON_TABLES_FOR_PACKAGE".
+
+/* in detail: */
+-- first create a list of tables [schema_name, table_name] in csv-file-format;
+-- then upload csv-file to table  "ROLE_MAINTENANCE"."auth.auth.procedures::PROTECTED_SCHEMA_TABLES_IMPORT_LIST";
+-- afterwards this procedure compares the entries of import-list with entries of table "PUBLIC"."TABLES"
+-- and put those table_names which do exist with listed schema_name, 
+-- into table "ROLE_MAINTENANCE"."auth.auth.procedures::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES",
+-- and put other table_names into "ROLE_MAINTENANCE"."auth.auth.procedures::PROTECTED_SCHEMA_TABLES_IMPORT_ERROR";
+
+-- There are no procedure parameters.
+
+/* procedure version: 16.01.2014 */
+/* *************************************************************************************/
+SELECT T1.TABLE_NAME, 
+       T1.CONTENT_PACKAGE,
+       T1.SCHEMA_NAME,  
+	   T1.INSERT_DATE 
+--FROM "ROLE_MAINTENANCE"."PROTECTED_SCHEMA_TABLES_IMPORT_LIST" as T1 
+  FROM "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_IMPORT_LIST_TIMESTAMP" as T1
+     LEFT OUTER JOIN "PUBLIC"."TABLES"                        as T2 
+ON T1.TABLE_NAME = T2.TABLE_NAME  and  T2.SCHEMA_NAME = T1.SCHEMA_NAME 
+WHERE T2.TABLE_NAME IS NULL 
+--INTO "ROLE_MAINTENANCE"."PROTECTED_SCHEMA_TABLES_IMPORT_ERROR";
+INTO "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_IMPORT_ERROR";  
+
+
+--UPSERT "ROLE_MAINTENANCE"."PROTECTED_SCHEMA_TABLES_FOR_PACKAGES"
+  UPSERT "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES"
+SELECT T1.TABLE_NAME, 
+       T1.CONTENT_PACKAGE, 
+       T1.SCHEMA_NAME,
+	   T1.INSERT_DATE, 
+	   T1.TICKET_NUMBER
+--FROM "ROLE_MAINTENANCE"."PROTECTED_SCHEMA_TABLES_IMPORT_LIST" as T1 
+  FROM "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_IMPORT_LIST_TIMESTAMP" as T1
+     INNER JOIN "PUBLIC"."TABLES"                             as T2 
+ON T1.TABLE_NAME = T2.TABLE_NAME  and T1.SCHEMA_NAME = T2.SCHEMA_NAME;
+
+
+/* ***************  end procedure  *******************************/
+END;

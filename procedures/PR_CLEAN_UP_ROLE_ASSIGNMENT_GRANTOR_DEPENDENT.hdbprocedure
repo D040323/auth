@@ -1,0 +1,57 @@
+PROCEDURE "AUTO_USER_ADMIN"."auth.auth.procedures::PR_CLEAN_UP_ROLE_ASSIGNMENT_GRANTOR_DEPENDENT" ( ) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY DEFINER 
+	DEFAULT SCHEMA AUTO_USER_ADMIN
+	--READS SQL DATA 
+	AS
+BEGIN
+-- to run this procedure, use the following:
+-- CALL "AUTO_USER_ADMIN"."auth.auth.procedures::PR_CLEAN_UP_ROLE_ASSIGNMENT_GRANTOR_DEPENDENT";
+
+
+/* ****************************************************************************************************/
+/* procedure "AUTO_USER_ADMIN"."auth.auth.procedures::PR_CLEAN_UP_ROLE_ASSIGNMENT_GRANTOR_DEPENDENT"  */
+/* ****************************************************************************************************/
+/* short description */
+-- This is a procedure to revoke specific roles.
+
+/* in detail: */
+-- First a maximum of 50 roles is selected. There are only those roles relevant,
+-- which have been granted by the user who calls the procedure
+-- and which have been granted to an user with an D*/C*/I*-number.
+-- So repository role assignments are not effected by this procedure.
+
+
+-- There is no procedure parameter.
+
+/* procedure version: 12.05.2014 */
+/* *********************************************************************************/
+
+
+/* **********************  define variables ****************************************/
+DECLARE varStatement           VARCHAR(512) := '';
+DECLARE varRepoRole			   INTEGER      := 99;
+/* **********************  end define variables ************************************/
+
+DECLARE CURSOR ITERATOR FOR 
+    (SELECT TOP 50 * 
+	 FROM GRANTED_ROLES 
+	 WHERE GRANTOR = (SELECT SESSION_USER FROM DUMMY) 
+	   AND GRANTEE_TYPE = 'USER' 
+	   AND (   GRANTEE >= 'I000000' and GRANTEE <= 'I999999'
+            or GRANTEE >= 'C0000000' and GRANTEE <= 'C9999999'
+            or GRANTEE >= 'D000000' and GRANTEE <= 'D999999'
+		   )
+     );
+      
+      
+	  
+BEGIN
+     FOR each_row AS ITERATOR DO 
+		     varStatement := 'REVOKE "'|| each_row.ROLE_NAME ||'" FROM "'|| each_row.GRANTEE ||'"';
+    		 EXEC :varStatement;
+     END FOR;
+
+/* ************************* end of procedure ********************************/
+END;
+END;

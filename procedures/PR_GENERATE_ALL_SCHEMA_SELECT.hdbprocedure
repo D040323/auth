@@ -1,0 +1,48 @@
+PROCEDURE "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GENERATE_ALL_SCHEMA_SELECT" ( ) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY DEFINER 	
+	DEFAULT SCHEMA ROLE_MAINTENANCE
+	--READS SQL DATA 
+	AS
+	
+/*BEGIN
+/***************************** 
+	Write your procedure logic 
+ *****************************/
+ CURSOR ITERATOR FOR
+	
+	select distinct * from sys.schemas where SCHEMA_OWNER like '%SYS_REPO%' and SCHEMA_NAME not like 'SAP%' and SCHEMA_NAME not like '_SYS%';
+
+BEGIN
+
+DECLARE varRoleParent VARCHAR(30);
+DECLARE varErrorMessageNoRole VARCHAR(256);
+DECLARE varSuccessMessage VARCHAR(256);
+DECLARE varCounter integer;
+
+
+varRoleParent 		:= '#_SCHEMA_PRIV_ALL_SELECT';
+varErrorMessageNoRole := 'ERROR: role ' || :varRoleParent || ' does not exist - refresh not possible!';
+varSuccessMessage     := 'Role ' || :varRoleParent || ' was refreshed';
+
+/* **********************  check if role does exist ************************************/
+-- in case parent role does exist, call procedure to refresh role content;
+
+
+varCounter := 1;
+SELECT COUNT(*) INTO varCounter FROM "PUBLIC"."ROLES" WHERE ROLE_NAME = :varRoleParent ;
+IF (varCounter != 0)
+THEN
+	
+	EXEC 'CREATE ROLE "#_SCHEMA_PRIV_ALL_SELECT"';	
+	SELECT :varSuccessMessage FROM dummy;
+ELSE
+	SELECT :varErrorMessageNoRole FROM dummy;
+END IF;
+/* **********************  end procedure   *********************************************/
+
+		FOR each_row AS ITERATOR DO 
+            call GRANT_SCHEMA_PRIVILEGE_ON_ACTIVATED_CONTENT ('SELECT', each_row.SCHEMA_NAME , '#_SCHEMA_PRIV_ALL_SELECT');        
+		END FOR;
+		
+END;

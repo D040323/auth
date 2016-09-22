@@ -1,0 +1,111 @@
+PROCEDURE "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_SELECT_ON_TABLES_FOR_PACKAGE" 
+       (IN  InputParPackage VARCHAR (64)) 
+    --    (IN InputParSchema  VARCHAR (128)) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY Invoker 
+	DEFAULT SCHEMA ROLE_MAINTENANCE
+	--READS SQL DATA 
+	AS
+BEGIN
+-- >>>>>> ATTENTION!!!
+-- >>>>>> please enter the package name in lower case letters!
+-- to run this procedure, use the following:
+-- CALL "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_SELECT_ON_TABLES_FOR_PACKAGE"('test', 'SAPICX');
+
+/* *******************************************************************************************/
+/* procedure "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_SELECT_ON_TABLES_FOR_PACKAGE"                  */
+/* *******************************************************************************************/
+/* short description */
+-- This is a procedure to grant the SELECT privilege on several tables to a role.
+
+/* details about resulting role */
+-- The result role, named #<SCHEMA_PROTECTED>_TABLES_<pppp>_SELECT,
+-- will contain the SELECT privilege on those NetWeaver tables
+-- of schema <SCHEMA_PROTECTED> which belong to package <pppp>.
+-- This belonging is listed in table "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES".
+
+-- There will be always a comparison of old and new status made as follows.
+-- First there is a search for table names (with according schema name and package name)
+-- which are listed in "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES"
+-- and which do exist (via PUBLIC.TABLES).
+-- Then if there are more table names than currently are included in the role,
+-- exactly these table names will be added to the role.
+-- In case the role does not exist so far, the role hull will be created.
+-- In case a table does not exist anymore, 
+-- all privileges on this table will be removed from every role or user automatically.
+-- (but the table name will remain in list "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES");
+
+/* details about procedure parameters */
+-- 1st input parameter (InputParPackage) must be a package name ('abcd' for example).
+-- 2nd input parameter (InputParSchema)  must be a schema name (bsp. 'SAPICX').
+
+/* procedure version: 17.02.2014 */
+/* *************************************************************************************/
+
+/* **********************  define variables ****************************************/
+-- define a variable which will be used to count;
+-- define role;
+-- define a variable which will be used for statement creation;
+DECLARE varCounter      INTEGER;
+--DECLARE varRole         VARCHAR (512) := '#' || :InputParSchema || '_TABLES_' || :InputParPackage || '_SELECT';
+DECLARE varRole         VARCHAR (512) := '#' || 'SCHEMA_TABLES_' || :InputParPackage || '_SELECT';
+DECLARE varStatement    VARCHAR (512) := '';
+/* **********************  end define variables *************************************/
+
+
+/* **********************  cursor ***************************************************/
+-- create a temporary table named ITERATOR, filled with selected rows
+-- the selection is defined by input parameter given by end-user who calls the procedure
+DECLARE CURSOR ITERATOR FOR
+       SELECT T3.TABLE_NAME, T3.SCHEMA_NAME
+       FROM (
+             SELECT T1.TABLE_NAME, T1.SCHEMA_NAME, T1.CONTENT_PACKAGE  
+           --FROM ROLE_MAINTENANCE.PROTECTED_SCHEMA_TABLES_FOR_PACKAGES AS T1
+			 FROM "ROLE_MAINTENANCE"."auth.auth.tables::PROTECTED_SCHEMA_TABLES_FOR_PACKAGES" AS T1             
+                  INNER JOIN
+                  PUBLIC.TABLES AS T2
+                  ON (    T1.TABLE_NAME  = T2.TABLE_NAME
+                      AND T1.SCHEMA_NAME = T2.SCHEMA_NAME)
+             WHERE     T1.CONTENT_PACKAGE = :InputParPackage
+           --        AND T1.SCHEMA_NAME     = :InputParSchema
+            ) AS T3
+            LEFT OUTER JOIN
+            (
+             SELECT T4.GRANTEE, T4.SCHEMA_NAME, T4.PRIVILEGE, T4.OBJECT_NAME
+             FROM PUBLIC.GRANTED_PRIVILEGES AS T4
+             WHERE     T4.GRANTEE     = :varRole 
+   --                AND T4.SCHEMA_NAME = :InputParSchema
+            ) AS T5
+            ON T3.TABLE_NAME = T5.OBJECT_NAME 
+       WHERE T5.OBJECT_NAME IS NULL;
+/* **********************  end cursor ************************************************/
+
+
+BEGIN  
+/* **********************  check if roles do exist ************************************/
+-- check if the role #<SCHEMA_PROTECTED>_TABLES_<pppp>_SELECT to be filled does exist;
+-- if not, create it;
+varCounter := 1;
+SELECT COUNT(*) INTO varCounter FROM "PUBLIC"."ROLES" WHERE ROLE_NAME = :varRole ;
+IF (varCounter = 0)
+THEN
+	varStatement := 'CREATE ROLE "' || :varRole || '"'; 
+	EXEC :varStatement;
+END IF;
+/* **********************  end check if roles do exist ************************************/
+
+
+/* **********************  grant privileges to role ************************************/
+-- for each row of the temporary table ITERATOR,
+-- concatenate an SQL statement and execute it,
+-- meaning fill the role with SELECT privileges on tables belonging to a specific package;
+FOR each_row AS ITERATOR DO 
+    varStatement := 'GRANT SELECT ON "' || each_row.SCHEMA_NAME || '"."' || each_row.TABLE_NAME || '" TO "' || :varRole || '"'; 
+    EXEC :varStatement; 
+END FOR;
+/* **********************  end grant privileges to role ************************************/
+
+/* **********************  end procedure  *********************************/
+
+END;
+END;

@@ -1,0 +1,24 @@
+PROCEDURE "ROLE_MAINTENANCE"."auth.auth.procedures::PR_CLEANUP_DATA_PREVIEW_VIEWS" ( ) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY DEFINER 
+	DEFAULT SCHEMA ROLE_MAINTENANCE
+--	READS SQL DATA 
+AS
+BEGIN
+/***************************** 
+	Write your procedure logic 
+ *****************************/
+DECLARE varStatement    VARCHAR (512) := '';
+
+DECLARE CURSOR ITERATOR FOR
+       SELECT * from VIEWS where SCHEMA_NAME = '_SYS_BIC' and VIEW_NAME LIKE '%/dp/%' and VIEW_TYPE = 'CALC';   
+       
+	FOR each_row AS ITERATOR DO 
+	  varStatement := 'DROP VIEW "' || each_row.SCHEMA_NAME || '"."' || each_row.VIEW_NAME || '"';
+	  EXEC :varStatement; 
+	END FOR;       
+       
+
+END;
+
+

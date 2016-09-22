@@ -1,0 +1,9 @@
+import = [ 
+	     { 
+		table = "auth.auth.tables::PROTECTED_SCHEMA_TABLES_IMPORT_LIST"; 
+		schema = "ROLE_MAINTENANCE"; 
+		file = "auth.auth.tables:upload.csv"; 
+		header = true;  
+	     } 
+	];
+	

@@ -1,0 +1,34 @@
+role auth.auth::AUTO_USER_ADMIN 
+extends role 
+//Allows users to see which roles are granted to users.
+	sap.hana.security.cockpit.roles::DisplayAssignedRoles,
+//Allows users to grant roles to users
+	sap.hana.security.cockpit.roles::EditAssignedRoles,
+//Provides read-only access to users, roles, granted privileges, granted roles and effective privileges of current user, and allows granting of roles to users	
+	sap.hana.security.base.roles::XSUserAdmin
+{
+
+	//User Creation / Maintenance
+	system privilege : TRACE ADMIN;
+	system privilege : AUDIT ADMIN; // enable Audit Log
+	system privilege : USER ADMIN;
+	system privilege: CATALOG READ;
+
+	catalog sql object "PUBLIC"."REPOSITORY_REST": EXECUTE;
+	package ".REPO_PACKAGE_ROOT": REPO.READ;
+
+	catalog schema "AUTO_USER_ADMIN": EXECUTE, SELECT, INSERT, UPDATE, DELETE;
+	catalog schema "ROLE_MAINTENANCE": EXECUTE, SELECT, INSERT, UPDATE, DELETE;
+	
+	catalog sql object "_SYS_REPO"."GRANT_ACTIVATED_ANALYTICAL_PRIVILEGE": EXECUTE;
+	catalog sql object "_SYS_REPO"."GRANT_ACTIVATED_ROLE": EXECUTE;
+	catalog sql object "_SYS_REPO"."GRANT_APPLICATION_PRIVILEGE": EXECUTE;
+	catalog sql object "_SYS_REPO"."GRANT_PRIVILEGE_ON_ACTIVATED_CONTENT": EXECUTE;
+	catalog sql object "_SYS_REPO"."GRANT_SCHEMA_PRIVILEGE_ON_ACTIVATED_CONTENT": EXECUTE;
+	catalog sql object "_SYS_REPO"."REVOKE_ACTIVATED_ANALYTICAL_PRIVILEGE": EXECUTE;
+	catalog sql object "_SYS_REPO"."REVOKE_ACTIVATED_ROLE": EXECUTE;
+	catalog sql object "_SYS_REPO"."REVOKE_APPLICATION_PRIVILEGE": EXECUTE;
+	catalog sql object "_SYS_REPO"."REVOKE_PRIVILEGE_ON_ACTIVATED_CONTENT": EXECUTE;
+	catalog sql object "_SYS_REPO"."REVOKE_SCHEMA_PRIVILEGE_ON_ACTIVATED_CONTENT": EXECUTE;
+
+}

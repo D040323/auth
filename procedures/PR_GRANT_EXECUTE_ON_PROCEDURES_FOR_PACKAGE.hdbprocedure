@@ -1,0 +1,133 @@
+PROCEDURE "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_EXECUTE_ON_PROCEDURES_FOR_PACKAGE" 
+(IN InputParPack NVARCHAR (256)) 
+	LANGUAGE SQLSCRIPT
+	SQL SECURITY INVOKER 
+	DEFAULT SCHEMA ROLE_MAINTENANCE
+	--READS SQL DATA 
+	AS
+BEGIN
+-- >>>>>> ATTENTION!!!
+-- >>>>>> please take care for correct package name input!
+-- to run this procedure, use the following:
+-- CALL "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_EXECUTE_ON_PROCEDURES_FOR_PACKAGE" ('test');
+
+
+/* *************************************************************************************************/
+/* procedure "ROLE_MAINTENANCE"."auth.auth.procedures::PR_GRANT_EXECUTE_ON_PROCEDURES_FOR_PACKAGE" */
+/* *************************************************************************************************/
+/* short description */
+-- This is a procedure to grant the privilege EXECUTE on several procedures to a role.
+
+/* details about resulting role */
+-- The result role, named #_SYS_BIC_PROCEDURE_<pppp>_EXECUTE
+-- will contain the EXECUTE privilege on those procedures
+-- of schema _SYS_BIC which belong to package <pppp> and are valid
+-- and do NOT end with */proc.
+
+-- There will be always a comparison of old and new status made
+-- meaning if there exist more activated procedures in schema "_SYS_BIC" 
+-- than currently are included in the role,
+-- then these procedure names will be added to the role.
+-- In case the role does not exist so far, the role hull will be created.
+-- In case a procedure does not exist anymore, 
+-- all privileges on this procedure will be removed from every role or user automatically.
+
+/* details about procedure parameters */
+-- Input parameter (InputParPack) must be a package name ('abcd' for example);
+-- a slash / and a wildcard % will be added within the procedure;
+-- There is no output parameter.
+
+/* procedure version: 13.05.2014 */
+/* *************************************************************************************/
+
+
+
+
+/* **********************  define variables ****************************************/
+-- define a variable which will be used to count;
+-- define role;
+-- define a variable which will be used for statement creation;
+DECLARE varCounter       INTEGER;
+DECLARE varRole          VARCHAR (512) := '#_SYS_BIC_PROCEDURE_' || :InputParPack || '_EXECUTE';
+DECLARE varStatement     VARCHAR (512) := '';
+DECLARE varPackSlashLike VARCHAR (512) := :InputParPack || '/%';
+DECLARE varPackDotLike   VARCHAR (512) := :InputParPack || '.%';
+/* **********************  end define variables *************************************/
+
+
+
+/* **********************  cursor ***************************************************/
+-- create a temporary table named ITERATOR, filled with selected rows;
+-- the selection is defined by input parameter given by end-user who calls the procedure
+-- and the selection is limited to the following:
+-- - procedures which name is <package>/* or <package>.* but not */proc
+-- - procedures belonging to schema _SYS_BIC
+-- - valid procedures
+-- - procedures not granted to role #_SYS_BIC_PROCEDURE_<package>_EXECUTE already
+-- - procedures with owner = _SYS_REPO
+DECLARE CURSOR ITERATOR FOR
+    SELECT T4.SCHEMA_NAME, T4.PROCEDURE_NAME  
+	FROM ( (  SELECT T1.SCHEMA_NAME, T1.PROCEDURE_NAME  
+              FROM ( SELECT * 
+			         FROM PUBLIC.PROCEDURES
+			         WHERE (     PROCEDURE_NAME LIKE     :varPackSlashLike
+                             OR  PROCEDURE_NAME LIKE     :varPackDotLike)
+                             AND SCHEMA_NAME    =        '_SYS_BIC' 
+                             AND IS_VALID       =        'TRUE'
+                             AND PROCEDURE_NAME NOT LIKE '%/proc'
+			       ) AS T1
+                   LEFT OUTER JOIN
+			       ( SELECT * 
+				     FROM PUBLIC.GRANTED_PRIVILEGES 
+				     WHERE     GRANTEE     = :varRole
+                           AND SCHEMA_NAME = '_SYS_BIC' 
+                           AND (    OBJECT_NAME LIKE :varPackSlashLike
+                                 OR OBJECT_NAME LIKE :varPackDotLike 
+							   )
+			       ) AS T2 
+			       ON T1.PROCEDURE_NAME = T2.OBJECT_NAME 
+			       WHERE T2.OBJECT_NAME IS NULL
+           ) AS T4
+           INNER JOIN
+           ( SELECT * 
+		     FROM OWNERSHIP 
+			 WHERE OWNER_NAME = '_SYS_REPO'
+           ) as T3
+           ON T4.SCHEMA_NAME = T3.SCHEMA_NAME
+           AND T4.PROCEDURE_NAME = T3.OBJECT_NAME
+         );
+/* **********************  end cursor ************************************************/
+
+
+
+BEGIN
+/* **********************  check if role does exist ************************************/
+-- check if the role #_SYS_BIC_PROCEDURE_<pppp>_EXECUTE to be filled does exist;
+-- if not, create it;
+varCounter := 1;
+SELECT COUNT(*) INTO varCounter FROM PUBLIC.ROLES WHERE ROLE_NAME = :varRole;
+IF (varCounter = 0)
+THEN
+	varStatement := 'CREATE ROLE "' || :varRole || '"'; 
+	EXEC :varStatement;
+END IF;
+/* **********************  end check if role does exist ************************************/
+
+
+
+
+/* **********************  grant privileges to role ************************************/
+-- for each row of the temporary table ITERATOR,
+-- concatenate an SQL statement and execute it,
+-- meaning fill the role with EXECUTE privileges on procedures belonging to a specific package;
+FOR each_row AS ITERATOR DO 
+    varStatement := 'GRANT EXECUTE ON "' || each_row.SCHEMA_NAME || '"."' || each_row.PROCEDURE_NAME || '" TO "' || :varRole || '"'; 
+    EXEC :varStatement; 
+END FOR;
+/* **********************  end grant privileges to role ************************************/
+
+
+
+/* **********************  end procedure   *******************************/
+END;
+END;

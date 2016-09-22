@@ -1,0 +1,59 @@
+role auth.auth::ROLE_MAINTENANCE
+-- This role is to be intended for IAM HANA Services Team only.
+-- It includes privileges to create users, assign and revoke roles and privileges and user maintenance  
+-- Creator D040323, 16.02.2015 V1
+-- schema privileges
+-- http(s)://<host>:<port>/sap/hana/admin/cockpit
+// Application Schema required
+--extends	catalog role "#_SCHEMA_PRIV_SELECT" // Use call "ROLE_MAINTENANCE"."PROC_GRANT_SCHEMA_RIGHTS_SELECT_ROMA"
+extends role auth.basis::BC_DEBUG,
+			 auth.basis::BC_IDE_CATALOGDEVELOPER,
+			 auth.basis::BC_IDE_EDITOR_DEVELOPER,
+			 auth.basis::BC_IDE_SECURITY_TESTER			 
+{
+	-- Table Privilege
+	catalog sql object "_SYS_BI"."M_SCHEMA_MAPPING": SELECT, INSERT;
+	 
+	catalog schema "_SYS_BIC": EXECUTE, SELECT, UPDATE, DELETE, DROP;
+	catalog schema 	"_SYS_BI",
+					"_SYS_STATISTICS", 
+					"_SYS_REPO"	: SELECT;
+							  	
+	 catalog schema "ROLE_MAINTENANCE": 	
+									  	EXECUTE, 
+									  	SELECT, 
+									  	INSERT,
+									  	UPDATE, 
+									  	DELETE, 
+									  	DEBUG; 
+									  		
+									  	
+	-- repository privileges:
+	package ".REPO_PACKAGE_ROOT": REPO.READ,
+	-- Privileges for Native Packages									
+								  REPO.EDIT_NATIVE_OBJECTS, 
+								  REPO.ACTIVATE_NATIVE_OBJECTS,
+								  REPO.MAINTAIN_NATIVE_PACKAGES,
+	-- Privileges for Imported Package
+	-- The imported objects should normally only be changed by re-imports. In rare cases where immediate fixes are required, you can grant the necessary authorization for imported packages							
+								  REPO.EDIT_IMPORTED_OBJECTS,
+								  REPO.ACTIVATE_IMPORTED_OBJECTS,
+								  REPO.MAINTAIN_IMPORTED_PACKAGES;
+
+	//User Creation / Maintenance
+	system privilege : TRACE ADMIN;
+	system privilege : AUDIT ADMIN; // enable Audit Log
+	system privilege : CATALOG READ, 
+					   REPO.EXPORT,
+					   REPO.IMPORT,
+					   REPO.MAINTAIN_DELIVERY_UNITS,
+					   ROLE ADMIN,
+					   STRUCTUREDPRIVILEGE ADMIN;
+	
+	// Role assignment / revoke
+	catalog sql object "PUBLIC"."REPOSITORY_REST": EXECUTE;
+	//Assign
+	
+	// analytic privileges
+	catalog analytic privilege: "_SYS_BI_CP_ALL";	
+}
